@@ -26,6 +26,12 @@ contract UniswapV3Pool {
         uint256 amount1
     );
 
+    struct CallbackData {
+        address token0;
+        address token1;
+        address payer;
+    }
+
     int24 internal constant MIN_TICK = -887272;
     int24 internal constant MAX_TICK = -MIN_TICK;
 
