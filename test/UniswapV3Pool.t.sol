@@ -10,8 +10,9 @@ contract UniswapV3PoolTest is Test, TestUtils {
     ERC20Mintable token1;
     UniswapV3Pool pool;
 
-    bool transferInMintCallback = true;
-    bool transferInSwapCallback = true;
+    bool shouldTransferInCallback = true;
+    // bool transferInMintCallback = true;
+    // bool transferInSwapCallback = true;
 
     struct TestCaseParams {
         uint256 wethBalance;
@@ -21,8 +22,9 @@ contract UniswapV3PoolTest is Test, TestUtils {
         int24 upperTick;
         uint128 liquidity;
         uint160 currentSqrtP;
-        bool transferInMintCallback;
-        bool transferInSwapCallback;
+        bool shouldTransferInCallback;
+        // bool transferInMintCallback;
+        // bool transferInSwapCallback;
         bool mintLiqudity;
     }
 
@@ -40,8 +42,9 @@ contract UniswapV3PoolTest is Test, TestUtils {
             upperTick: 86129,
             liquidity: 1517882343751509868544,
             currentSqrtP: 5602277097478614198912276234240,
-            transferInMintCallback: true,
-            transferInSwapCallback: false,
+            shouldTransferInCallback:true,
+            // transferInMintCallback: true,
+            // transferInSwapCallback: false,
             mintLiqudity: true
         });
 
@@ -117,12 +120,12 @@ contract UniswapV3PoolTest is Test, TestUtils {
             );
         }
 
-        transferInMintCallback = params.transferInMintCallback;
-        transferInSwapCallback = params.transferInSwapCallback;
+        shouldTransferInCallback = params.shouldTransferInCallback;
+        // transferInSwapCallback = params.transferInSwapCallback;
     }
 
     function uniswapV3MintCallback(uint256 amount0, uint256 amount1) public {
-        if (transferInMintCallback) {
+        if (shouldTransferInCallback) {
             token0.transfer(msg.sender, amount0);
             token1.transfer(msg.sender, amount1);
         }
