@@ -10,9 +10,8 @@ contract UniswapV3PoolTest is Test, TestUtils {
     ERC20Mintable token1;
     UniswapV3Pool pool;
 
-    bool shouldTransferInCallback = true;
-    // bool transferInMintCallback = true;
-    // bool transferInSwapCallback = true;
+    bool transferInMintCallback = true;
+    bool transferInSwapCallback = true;
 
     struct TestCaseParams {
         uint256 wethBalance;
@@ -42,7 +41,7 @@ contract UniswapV3PoolTest is Test, TestUtils {
             upperTick: 86129,
             liquidity: 1517882343751509868544,
             currentSqrtP: 5602277097478614198912276234240,
-            shouldTransferInCallback:true,
+            shouldTransferInCallback: true,
             // transferInMintCallback: true,
             // transferInSwapCallback: false,
             mintLiqudity: true
@@ -50,31 +49,19 @@ contract UniswapV3PoolTest is Test, TestUtils {
 
         (uint256 poolBalance0, uint256 poolBalance1) = setupTestCase(params);
 
-        uint256 expectedAmount0 = 0.998976618347425280 ether;
+        uint256 expectedAmount0 = 0.99897661834742528 ether;
         uint256 expectedAmount1 = 5000 ether;
-        assertEq(
-            poolBalance0,
-            expectedAmount0,
-            "incorrect token0 deposited amount"
-        );
-        assertEq(
-            poolBalance1,
-            expectedAmount1,
-            "incorrect token1 deposited amount"
-        );
+        assertEq(poolBalance0, expectedAmount0, "incorrect token0 deposited amount");
+        assertEq(poolBalance1, expectedAmount1, "incorrect token1 deposited amount");
 
         assertEq(token0.balanceOf(address(pool)), expectedAmount0);
         assertEq(token1.balanceOf(address(pool)), expectedAmount1);
 
-        bytes32 positionKey = keccak256(
-            abi.encodePacked(address(this), params.lowerTick, params.upperTick)
-        );
+        bytes32 positionKey = keccak256(abi.encodePacked(address(this), params.lowerTick, params.upperTick));
         uint128 posLiquidity = pool.positions(positionKey);
         assertEq(posLiquidity, params.liquidity);
 
-        (bool tickInitialized, uint128 tickLiquidity) = pool.ticks(
-            params.lowerTick
-        );
+        (bool tickInitialized, uint128 tickLiquidity) = pool.ticks(params.lowerTick);
         assertTrue(tickInitialized);
         assertEq(tickLiquidity, params.liquidity);
 
@@ -83,17 +70,9 @@ contract UniswapV3PoolTest is Test, TestUtils {
         assertEq(tickLiquidity, params.liquidity);
 
         (uint160 sqrtPriceX96, int24 tick) = pool.slot0();
-        assertEq(
-            sqrtPriceX96,
-            5602277097478614198912276234240,
-            "invalid current sqrtP"
-        );
+        assertEq(sqrtPriceX96, 5602277097478614198912276234240, "invalid current sqrtP");
         assertEq(tick, 85176, "invalid current tick");
-        assertEq(
-            pool.liquidity(),
-            1517882343751509868544,
-            "invalid current liquidity"
-        );
+        assertEq(pool.liquidity(), 1517882343751509868544, "invalid current liquidity");
     }
 
     function setupTestCase(TestCaseParams memory params)
@@ -111,103 +90,74 @@ contract UniswapV3PoolTest is Test, TestUtils {
         );
 
         if (params.mintLiqudity) {
-            (poolBalance0, poolBalance1) = pool.mint(
-                address(this),
-                params.lowerTick,
-                params.upperTick,
-                params.liquidity,
-                ""
-            );
+            (poolBalance0, poolBalance1) =
+                pool.mint(address(this), params.lowerTick, params.upperTick, params.liquidity, "");
         }
 
         shouldTransferInCallback = params.shouldTransferInCallback;
         // transferInSwapCallback = params.transferInSwapCallback;
     }
 
-    function uniswapV3MintCallback(uint256 amount0, uint256 amount1) public {
+    function uniswapV3MintCallback(uint256 amount0, uint256 amount1, bytes calldata data) public {
         if (shouldTransferInCallback) {
-            token0.transfer(msg.sender, amount0);
-            token1.transfer(msg.sender, amount1);
+            UniswapV3Pool.CallbackData memory extra = abi.decode(data, (UniswapV3Pool.CallbackData));
+
+            IERC20(extra.token0).transferFrom(extra.payer, msg.sender, amount0);
+            IERC20(extra.token1).transferFrom(extra.payer, msg.sender, amount1);
         }
     }
 
-    function uniswapV3SwapCallback(int256 amount0, int256 amount1) public {
+    function uniswapV3SwapCallback(int256 amount0, int256 amount1, bytes calldata data) public {
+        UniswapV3Pool.CallbackData memory extra = abi.decode(data, (UniswapV3Pool.CallbackData));
+
         if (amount0 > 0) {
-            token0.transfer(msg.sender, uint256(amount0));
+            IERC20(extra.token0).transferFrom(extra.payer, msg.sender, uint256(amount0));
         }
 
         if (amount1 > 0) {
-            token1.transfer(msg.sender, uint256(amount1));
+            IERC20(extra.token1).transferFrom(extra.payer, msg.sender, uint256(amount1));
         }
     }
 
-
     function testSwapBuyEth() public {
-    TestCaseParams memory params = TestCaseParams({
-        wethBalance: 1 ether,
-        usdcBalance: 5000 ether,
-        currentTick: 85176,
-        lowerTick: 84222,
-        upperTick: 86129,
-        liquidity: 1517882343751509868544,
-        currentSqrtP: 5602277097478614198912276234240,
-        shouldTransferInCallback: true,
-        mintLiqudity: true
-    });
-    
-    
-    (uint256 poolBalance0, uint256 poolBalance1) = setupTestCase(params);
+        TestCaseParams memory params = TestCaseParams({
+            wethBalance: 1 ether,
+            usdcBalance: 5000 ether,
+            currentTick: 85176,
+            lowerTick: 84222,
+            upperTick: 86129,
+            liquidity: 1517882343751509868544,
+            currentSqrtP: 5602277097478614198912276234240,
+            shouldTransferInCallback: true,
+            mintLiqudity: true
+        });
 
+        (uint256 poolBalance0, uint256 poolBalance1) = setupTestCase(params);
 
+        token1.mint(address(this), 42 ether);
 
-    token1.mint(address(this), 42 ether);
+        int256 userBalance0Before = int256(token0.balanceOf(address(this)));
 
-    int256 userBalance0Before = int256(token0.balanceOf(address(this)));
+        (int256 amount0Delta, int256 amount1Delta) = pool.swap(address(this), "");
 
+        assertEq(amount0Delta, -0.008396714242162444 ether, "invalid ETH out");
+        assertEq(amount1Delta, 42 ether, "invalid USDC in");
 
-    (int256 amount0Delta, int256 amount1Delta) = pool.swap(address(this));
+        assertEq(
+            token0.balanceOf(address(this)), uint256(userBalance0Before - amount0Delta), "invalid user ETH balance"
+        );
+        assertEq(token1.balanceOf(address(this)), 0, "invalid user USDC balance");
 
-    assertEq(amount0Delta, -0.008396714242162444 ether, "invalid ETH out");
-    assertEq(amount1Delta, 42 ether, "invalid USDC in");
+        assertEq(
+            token0.balanceOf(address(pool)), uint256(int256(poolBalance0) + amount0Delta), "invalid pool ETH balance"
+        );
+        assertEq(
+            token1.balanceOf(address(pool)), uint256(int256(poolBalance1) + amount1Delta), "invalid pool USDC balance"
+        );
 
-
-    assertEq(
-        token0.balanceOf(address(this)),
-        uint256(userBalance0Before - amount0Delta),
-        "invalid user ETH balance"
-    );
-    assertEq(
-        token1.balanceOf(address(this)),
-        0,
-        "invalid user USDC balance"
-    );
-
-    assertEq(
-        token0.balanceOf(address(pool)),
-        uint256(int256(poolBalance0) + amount0Delta),
-        "invalid pool ETH balance"
-    );
-    assertEq(
-        token1.balanceOf(address(pool)),
-        uint256(int256(poolBalance1) + amount1Delta),
-        "invalid pool USDC balance"
-    );
-
-
-    (uint160 sqrtPriceX96, int24 tick) = pool.slot0();
-    assertEq(
-        sqrtPriceX96,
-        5604469350942327889444743441197,
-        "invalid current sqrtP"
-    );
-    assertEq(tick, 85184, "invalid current tick");
-    assertEq(
-        pool.liquidity(),
-        1517882343751509868544,
-        "invalid current liquidity"
-    );
-
+        (uint160 sqrtPriceX96, int24 tick) = pool.slot0();
+        assertEq(sqrtPriceX96, 5604469350942327889444743441197, "invalid current sqrtP");
+        assertEq(tick, 85184, "invalid current tick");
+        assertEq(pool.liquidity(), 1517882343751509868544, "invalid current liquidity");
     }
-
-
 }
